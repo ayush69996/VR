@@ -9,7 +9,7 @@
 </head>
 
 <body>
-  <a-scene>
+  <a-scene xr-mode-ui="enabled: false" webxr="requiredFeatures: local-floor, dom-overlay; optionalFeatures: hand-tracking, layers" dom-overlay="root: body">
 
     <!-- Assets -->
     <a-assets>
@@ -74,11 +74,213 @@
       position="0 4.3 -6" align="center" color="#00ffff" width="5">
     </a-text>
 
+    <!-- AR/VR Mode Toggle Button -->
+    <a-plane id="arButton" position="-3 2 -4" width="1" height="0.5" color="#00ff00" opacity="0.8"
+      event-set__click="_event: click; _target: #arButton; color: #ffff00"
+      event-set__mouseenter="_event: mouseenter; scale: 1.1 1.1 1.1"
+      event-set__mouseleave="_event: mouseleave; scale: 1 1 1">
+    </a-plane>
+
+    <a-text value="ENTER AR MODE" position="-3 2 -3.9" align="center" color="#000000" width="1.5" scale="0.8 0.8 0.8"></a-text>
+
     <!-- Instruction -->
-    <a-text value="Use controllers to point and click sensors\nPress trigger to teleport around the scene"
+    <a-text value="Use controllers to point and click sensors\nPress trigger to teleport around the scene\nClick green button to enter AR mode"
       position="0 3.8 -6" align="center" color="yellow" width="4">
     </a-text>
 
   </a-scene>
 </body>
+
+<script>
+  // AR Mode and Object Tracking Functionality
+  let currentSession = null;
+  let isARMode = false;
+  let arObjects = [];
+  let descriptionText = null;
+
+  // Initialize AR functionality
+  function initAR() {
+    const scene = document.querySelector('a-scene');
+
+    // Create description text element
+    descriptionText = document.createElement('a-text');
+    descriptionText.setAttribute('value', '');
+    descriptionText.setAttribute('position', '0 -0.5 -1');
+    descriptionText.setAttribute('align', 'center');
+    descriptionText.setAttribute('color', '#ffffff');
+    descriptionText.setAttribute('width', '2');
+    descriptionText.setAttribute('visible', 'false');
+    scene.appendChild(descriptionText);
+
+    // Create AR objects (virtual objects that can be "detected")
+    createARObjects(scene);
+
+    // Add click handler for AR button
+    document.getElementById('arButton').addEventListener('click', enterARMode);
+  }
+
+  // Create virtual objects for AR tracking
+  function createARObjects(scene) {
+    const objects = [
+      { id: 'machine', position: '0 0 -2', description: 'Industrial Machine\nStatus: Active\nTemperature: 45°C\nEfficiency: 92%', color: '#00d9ff' },
+      { id: 'sensor1', position: '-1 0 -2', description: 'Temperature Sensor\nReading: 45°C\nStatus: Normal', color: '#ff0055' },
+      { id: 'sensor2', position: '1 0 -2', description: 'Pressure Sensor\nReading: 2.1 bar\nStatus: Normal', color: '#ff0055' },
+      { id: 'control_panel', position: '0 1 -2', description: 'Control Panel\nSystem: Online\nAlerts: None', color: '#111111' }
+    ];
+
+    objects.forEach(obj => {
+      const entity = document.createElement('a-entity');
+      entity.setAttribute('id', obj.id);
+      entity.setAttribute('geometry', 'primitive: box; width: 0.3; height: 0.3; depth: 0.3');
+      entity.setAttribute('material', `color: ${obj.color}; opacity: 0.7`);
+      entity.setAttribute('position', obj.position);
+      entity.setAttribute('visible', 'false'); // Hidden in VR mode
+      entity.setAttribute('ar-description', obj.description);
+      entity.classList.add('ar-object');
+      scene.appendChild(entity);
+      arObjects.push(entity);
+    });
+  }
+
+  // Enter AR Mode
+  async function enterARMode() {
+    if (isARMode) return;
+
+    try {
+      // Check if AR is supported
+      if (!navigator.xr) {
+        alert('WebXR not supported');
+        return;
+      }
+
+      const supported = await navigator.xr.isSessionSupported('immersive-ar');
+      if (!supported) {
+        alert('AR not supported on this device');
+        return;
+      }
+
+      // Request AR session
+      const session = await navigator.xr.requestSession('immersive-ar', {
+        requiredFeatures: ['local-floor', 'dom-overlay'],
+        domOverlay: { root: document.body }
+      });
+
+      currentSession = session;
+      isARMode = true;
+
+      // Update UI
+      document.getElementById('arButton').setAttribute('visible', 'false');
+      document.querySelectorAll('.ar-object').forEach(obj => obj.setAttribute('visible', 'true'));
+
+      // Hide VR elements
+      document.getElementById('sky').setAttribute('visible', 'false');
+      document.querySelector('.floor').setAttribute('visible', 'false');
+      document.getElementById('leftHand').setAttribute('visible', 'false');
+      document.getElementById('rightHand').setAttribute('visible', 'false');
+
+      // Start AR session
+      const scene = document.querySelector('a-scene');
+      await scene.renderer.xr.setSession(session);
+
+      // Add AR event listeners
+      session.addEventListener('end', onAREnd);
+
+      // Start object tracking
+      startObjectTracking();
+
+    } catch (error) {
+      console.error('Failed to enter AR mode:', error);
+      alert('Failed to enter AR mode: ' + error.message);
+    }
+  }
+
+  // Exit AR Mode
+  function onAREnd() {
+    isARMode = false;
+    currentSession = null;
+
+    // Show VR elements
+    document.getElementById('arButton').setAttribute('visible', 'true');
+    document.querySelectorAll('.ar-object').forEach(obj => obj.setAttribute('visible', 'false'));
+    document.getElementById('sky').setAttribute('visible', 'true');
+    document.querySelector('.floor').setAttribute('visible', 'true');
+    document.getElementById('leftHand').setAttribute('visible', 'true');
+    document.getElementById('rightHand').setAttribute('visible', 'true');
+
+    // Hide description
+    if (descriptionText) {
+      descriptionText.setAttribute('visible', 'false');
+    }
+  }
+
+  // Object tracking in AR mode
+  function startObjectTracking() {
+    const scene = document.querySelector('a-scene');
+    const camera = document.getElementById('head');
+
+    // Create a raycaster for object detection
+    const raycaster = new THREE.Raycaster();
+    const tempMatrix = new THREE.Matrix4();
+
+    function updateTracking() {
+      if (!isARMode) return;
+
+      // Get camera position and direction
+      camera.object3D.updateMatrixWorld();
+      tempMatrix.extractRotation(camera.object3D.matrixWorld);
+      const direction = new THREE.Vector3(0, 0, -1);
+      direction.applyMatrix4(tempMatrix);
+
+      raycaster.set(camera.object3D.position, direction);
+
+      // Check for intersections with AR objects
+      const intersects = raycaster.intersectObjects(arObjects.map(obj => obj.object3D), true);
+
+      if (intersects.length > 0) {
+        const intersectedObject = intersects[0].object;
+        const arEntity = arObjects.find(obj => obj.object3D === intersectedObject || obj.object3D.children.includes(intersectedObject));
+
+        if (arEntity) {
+          const description = arEntity.getAttribute('ar-description');
+          showDescription(description);
+        }
+      } else {
+        hideDescription();
+      }
+
+      requestAnimationFrame(updateTracking);
+    }
+
+    updateTracking();
+  }
+
+  // Show object description
+  function showDescription(text) {
+    if (descriptionText) {
+      descriptionText.setAttribute('value', text);
+      descriptionText.setAttribute('visible', 'true');
+    }
+  }
+
+  // Hide object description
+  function hideDescription() {
+    if (descriptionText) {
+      descriptionText.setAttribute('visible', 'false');
+    }
+  }
+
+  // Initialize when A-Frame is ready
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof AFRAME !== 'undefined') {
+      AFRAME.registerComponent('ar-description', {
+        schema: { type: 'string' },
+        init: function() {
+          this.description = this.data;
+        }
+      });
+      initAR();
+    }
+  });
+</script>
+
 </html>
