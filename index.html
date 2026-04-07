@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AR Digital Twin Demo - Static Clean</title>
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-event-set-component@5.0.1/dist/aframe-event-set-component.min.js"></script>
+</head>
+
+<body>
+  <a-scene>
+
+    <!-- Assets -->
+    <a-assets>
+      <img id="grid" src="https://cdn.aframe.io/a-painter/images/floor.jpg">
+      <img id="sky" src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/sechelt.jpg">
+    </a-assets>
+
+    <!-- Camera -->
+    <a-camera position="0 1.6 0">
+      <a-cursor color="yellow"></a-cursor>
+    </a-camera>
+
+    <!-- Lighting -->
+    <a-light type="ambient" intensity="0.5"></a-light>
+    <a-light type="point" position="0 5 -3" intensity="1.2"></a-light>
+
+    <!-- Sky -->
+    <a-sky src="#sky"></a-sky>
+
+    <!-- Ground Grid -->
+    <a-plane src="#grid" repeat="20 20" position="0 0 -5" rotation="-90 0 0" width="20" height="20"></a-plane>
+
+    <!-- Main Machine (Static Digital Twin Core) -->
+    <a-box position="0 1 -5" depth="1.2" height="1.2" width="1.2" color="#00d9ff"
+      event-set__enter="_event: mouseenter; scale: 1.2 1.2 1.2"
+      event-set__leave="_event: mouseleave; scale: 1 1 1">
+    </a-box>
+
+    <!-- Sensor Nodes (Static but clickable) -->
+    <a-sphere position="-2 1 -5" radius="0.4" color="#ff0055"
+      event-set__click="color: #00ff00">
+    </a-sphere>
+
+    <a-sphere position="2 1 -5" radius="0.4" color="#ff0055"
+      event-set__click="color: #00ff00">
+    </a-sphere>
+
+    <!-- Data Links (Static visual connection) -->
+    <a-cylinder position="-1 1 -5" radius="0.05" height="2" color="#ffff00"></a-cylinder>
+    <a-cylinder position="1 1 -5" radius="0.05" height="2" color="#ffff00"></a-cylinder>
+
+    <!-- Dashboard Panel -->
+    <a-plane position="0 3 -5" width="3.5" height="2" color="#111" opacity="0.85"></a-plane>
+
+    <a-text value="SYSTEM DASHBOARD\n\nStatus: ACTIVE\nTemp: 45°C\nEfficiency: 92%\nAlerts: NONE"
+      position="0 3 -4.9" align="center" color="#00ffcc" width="4">
+    </a-text>
+
+    <!-- Title -->
+    <a-text value="AR DIGITAL TWIN SYSTEM"
+      position="0 5 -6" align="center" color="#ffffff" width="6">
+    </a-text>
+
+    <!-- Subtitle -->
+    <a-text value="Real-time Monitoring • Interactive • Immersive"
+      position="0 4.3 -6" align="center" color="#00ffff" width="5">
+    </a-text>
+
+    <!-- Instruction -->
+    <a-text value="Click sensors to simulate interaction"
+      position="0 3.8 -6" align="center" color="yellow" width="4">
+    </a-text>
+
+  </a-scene>
+</body>
+</html>
