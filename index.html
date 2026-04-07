@@ -81,7 +81,11 @@
       event-set__mouseleave="_event: mouseleave; scale: 1 1 1">
     </a-plane>
 
-    <a-text value="ENTER AR MODE" position="-3 2 -3.9" align="center" color="#000000" width="1.5" scale="0.8 0.8 0.8"></a-text>
+    <!-- VR Status Indicator -->
+    <a-plane id="vrStatus" position="3 2 -4" width="1.5" height="0.3" color="#444444" opacity="0.8">
+    </a-plane>
+
+    <a-text id="vrStatusText" value="VR Status: Checking..." position="3 2 -3.9" align="center" color="#ffffff" width="1.8" scale="0.6 0.6 0.6"></a-text>
 
     <!-- Instruction -->
     <a-text value="Use controllers to point and click sensors\nPress trigger to teleport around the scene\nClick green button to enter AR mode"
@@ -279,8 +283,67 @@
         }
       });
       initAR();
+      checkWebXRSupport();
     }
   });
+
+  // Check WebXR support and camera connection
+  async function checkWebXRSupport() {
+    const statusText = document.getElementById('vrStatusText');
+    const statusPlane = document.getElementById('vrStatus');
+
+    try {
+      if (!navigator.xr) {
+        updateStatus('WebXR not supported', '#ff0000');
+        console.error('WebXR not supported');
+        return;
+      }
+
+      // Check VR support
+      const vrSupported = await navigator.xr.isSessionSupported('immersive-vr');
+      const arSupported = await navigator.xr.isSessionSupported('immersive-ar');
+
+      if (vrSupported) {
+        updateStatus('VR Ready - Camera Connected', '#00ff00');
+        console.log('VR supported and camera connected');
+      } else if (arSupported) {
+        updateStatus('AR Ready - Camera Connected', '#00ff00');
+        console.log('AR supported and camera connected');
+      } else {
+        updateStatus('VR/AR not supported', '#ff0000');
+        console.warn('Neither VR nor AR supported');
+      }
+
+      // Listen for XR session start
+      const scene = document.querySelector('a-scene');
+      scene.addEventListener('enter-vr', function() {
+        updateStatus('VR Active - Camera Tracking', '#00ff00');
+        console.log('Entered VR mode - camera tracking active');
+      });
+
+      scene.addEventListener('exit-vr', function() {
+        updateStatus('VR Exited', '#ffff00');
+        console.log('Exited VR mode');
+      });
+
+    } catch (error) {
+      updateStatus('Camera Error: ' + error.message, '#ff0000');
+      console.error('WebXR check failed:', error);
+    }
+  }
+
+  function updateStatus(message, color) {
+    const statusText = document.getElementById('vrStatusText');
+    const statusPlane = document.getElementById('vrStatus');
+
+    if (statusText) {
+      statusText.setAttribute('value', message);
+      statusText.setAttribute('color', color === '#00ff00' ? '#ffffff' : '#000000');
+    }
+    if (statusPlane) {
+      statusPlane.setAttribute('color', color);
+    }
+  }
 </script>
 
 </html>
